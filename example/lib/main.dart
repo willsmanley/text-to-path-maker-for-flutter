@@ -2,9 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:text_to_path_maker/text_to_path_maker.dart';
 import 'dart:typed_data';
+import 'package:video_player/video_player.dart';
 
 void main() {
   runApp(const Home());
+}
+
+class PathClipper extends CustomClipper<Path> {
+  final Path path;
+
+  PathClipper(this.path);
+
+  @override
+  Path getClip(Size size) {
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) {
+    return true;
+  }
 }
 
 class Home extends StatefulWidget {
@@ -17,98 +34,104 @@ class Home extends StatefulWidget {
 }
 
 class _Home extends State<Home> with SingleTickerProviderStateMixin {
-  late PMFont myFont;
-  late Path myPath1;
-  late Path myPath2;
-
-  late PMPieces path1Pieces;
-
-  late Animation<int> animation;
-  late AnimationController controller;
-
-  var z = 0;
-  var ready = false;
-
-  late Paint indicator;
+  Path? path;
+  VideoPlayerController? _controller;
 
   @override
   void initState() {
     super.initState();
 
-    indicator = Paint();
-    indicator.style = PaintingStyle.fill;
-    indicator.color = const Color.fromRGBO(255, 0, 0, 1.0);
+    _controller = VideoPlayerController.asset('assets/video.mp4')
+      ..initialize().then((_) {
+        setState(() {});
+        _controller?.setVolume(0);
+        _controller?.play();
+        _controller?.setLooping(true);
+      }).catchError((error) {
+        print("Error initializing video: $error");
+      });
 
     rootBundle.load("assets/font2.ttf").then((ByteData data) {
-      // Create a font reader
       var reader = PMFontReader();
-
-      // Parse the font
-      myFont = reader.parseTTFAsset(data);
-
-      // Generate the complete path for a specific character
-      myPath1 = myFont.generatePathForCharacter(101);
-
-      // Move it and scale it. This is necessary because the character
-      // might be too large or upside down.
-      myPath1 = PMTransform.moveAndScale(myPath1, -130.0, 180.0, 0.1, 0.1);
-
-      // Break the path into small pieces for the animation
-      path1Pieces = PMPieces.breakIntoPieces(myPath1, 0.01);
-
-      // Create an animation controller as usual
-      controller = AnimationController(
-          vsync: this, duration: const Duration(seconds: 2));
-
-      // Create a tween to move through all the path pieces.
-      animation = IntTween(begin: 0, end: path1Pieces.paths.length - 1)
-          .animate(controller);
-
-      animation.addListener(() {
-        setState(() {
-          z = animation.value;
-        });
-      });
-
+      final font = reader.parseTTFAsset(data);
       setState(() {
-        ready = true;
+        path = font.generatePathForCharacter(101); // e
       });
     });
+  }
+
+  buildOriginalVideo() {
+    if (_controller == null) {
+      return const CircularProgressIndicator();
+    }
+
+    return Column(
+      children: [
+        const Text("Original Video"),
+        SizedBox(
+          width: 200,
+          height: 200,
+          child: VideoPlayer(_controller!),
+        ),
+      ],
+    );
+  }
+
+  buildCircleClippedVideo() {
+    if (_controller == null) {
+      return const CircularProgressIndicator();
+    }
+
+    return Column(
+      children: [
+        const Text("Circle Clipped Video"),
+        ClipOval(
+          child: SizedBox(
+            width: 200,
+            height: 200,
+            child: VideoPlayer(_controller!),
+          ),
+        ),
+      ],
+    );
+  }
+
+  buildCharacterClippedVideo() {
+    if (path == null || _controller == null) {
+      return const CircularProgressIndicator();
+    }
+
+    return Column(
+      children: [
+        const Text("Character Clipped Video"),
+        ClipPath(
+          clipper: PathClipper(path!),
+          child: Container(
+            width: 200,
+            height: 200,
+            color: Colors.red,
+            child: VideoPlayer(_controller!),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        home: Scaffold(
-      body: Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(children: [
-            Row(children: [
-              ElevatedButton(
-                  onPressed: ready
-                      ? () {
-                          controller.forward();
-                        }
-                      : null,
-                  child: const Text("Forward")),
-              const Spacer(),
-              ElevatedButton(
-                  onPressed: ready
-                      ? () {
-                          controller.reverse();
-                        }
-                      : null,
-                  child: const Text("Reverse")),
-            ]),
-            ready
-                ? CustomPaint(
-                    painter: PMPainter(path1Pieces.paths[z],
-                        indicatorPosition: path1Pieces.points[z],
-                        radius: 5.0,
-                        indicator: indicator))
-                : const Text("Loading")
-          ])),
-      appBar: AppBar(title: const Text("Example")),
-    ));
+      home: Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              buildOriginalVideo(),
+              buildCircleClippedVideo(),
+              buildCharacterClippedVideo(),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

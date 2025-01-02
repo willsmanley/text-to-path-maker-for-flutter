@@ -13,6 +13,7 @@ dependencies:
     
   text_to_path_maker:
     path: ../
+  video_player: ^2.9.2
 
 dev_dependencies:
   flutter_lints: ^2.0.1
