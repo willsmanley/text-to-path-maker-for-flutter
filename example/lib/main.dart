@@ -54,8 +54,13 @@ class _Home extends State<Home> with SingleTickerProviderStateMixin {
     rootBundle.load("assets/font2.ttf").then((ByteData data) {
       var reader = PMFontReader();
       final font = reader.parseTTFAsset(data);
+      final tempPath = font.generatePathForCharacter(101); // e
+
+      // Move it and scale it. These values were produced by trial and error
+      // TODO: we need a way to put multiple characters into the path and determine
+      // correct scale and position values
       setState(() {
-        path = font.generatePathForCharacter(101); // e
+        path = PMTransform.moveAndScale(tempPath, 25.0, 175.0, 0.15, 0.15);
       });
     });
   }
